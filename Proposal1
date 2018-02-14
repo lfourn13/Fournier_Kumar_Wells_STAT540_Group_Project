@@ -8,6 +8,7 @@ Our final project will involve RNA-Seq data from the Peter Stirling lab (Focus o
 Division of labour
 
 Dataset
+RNA was extracted from Saccharomyces cerevisiae using the RiboPure RNA purification kit for Yeast. Steps were performed as per the manufacturer's instructions along with an additional DNase step for maximum purity. 9 samples in total - one wild type, one point mutant K335N, and another point mutant P369E (in triplicates) were sent to Genome Quebec Innovation Centre for sequencing. The library was prepared using Illumina TruSeq rRNA depleted stranded library prep. Based on a literature survey, rRNA depletion was chosen over PolyA since rRNA depletion protocols appear to measure immature transcripts (pre-mRNAs) and therefore provide more information on splicing patterns and possible splice junctions. Furthermore, since the main area of interest were rare splice variants, the strongest library prep method was chosen. Sequencing was performed by HiSeq 4000 Paired End 100bp sequencing lane yielding > 300M reads, ~25M reads per library.  
 
 Aims and Methodology
 

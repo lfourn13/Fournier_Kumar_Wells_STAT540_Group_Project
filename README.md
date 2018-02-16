@@ -4,4 +4,6 @@ Our team ("Splice and Dice") is composed of Louis-Alexandre Fournier, Arun Kumar
 
 In this repository you will find a summary of our project, sub-repositories containing our data, results, our analysis and our source code. 
 
+Useful links:
+
 Project proposal: https://github.com/lfourn13/Fournier_Kumar_Wells_STAT540_Group_Project/blob/master/project_proposal.md 

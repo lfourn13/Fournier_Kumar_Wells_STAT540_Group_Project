@@ -10,15 +10,15 @@ Members: Arun Kumar @arunk95, James Wells @jameswells96 and Louis-Alexandre Four
  
 ## **Motivation and background work**
 
-Our final project will involve RNA-Seq data from the Peter Stirling lab (Focus on genomic instability and cancer). Yeast wild-type data will be compared to two different mutants in the yeast homolog of SF3B1 (splicing factor 3b subunit 1) called HsH155. SF3B1 is a component of several splicesomes and is important translational modification of proteins to ensure proper functionality. SF3B1 mutations have been detected in several cancers including breast, uveal melanoma and myeloid leukemias. Two loss of function mutations commonly seen in the HEAT repeat domains of cancer patients: K335N and P369E. These mutations can be modelled in a yeast system in HSH155 to understand the consequence of loss of splicesomal function. Specifically, we want to know how these splice mutants are implicated in gene expression and intron retention rate and how this may induce a cancerous phenotype. SF3B1 is the most mutated gene in myeloid maligancies and is indicative of better overal survival compared to wildtype counterparts. However, SF3B1 is a poor prognostic indicator in progesterone receptor-negative breast cancer. This comparison highlights the gap in our understanding of SF3B1 mutation. 
+Our final project will involve RNA-Seq data from the Peter Stirling lab (Focus on genomic instability and cancer). Yeast wild-type data will be compared to two different mutants in the yeast homolog of SF3B1 (splicing factor 3b subunit 1) called HSH155. SF3B1 is a component of several splicesomes and is important translational modification of proteins to ensure proper functionality. SF3B1 mutations have been detected in several cancers including breast, uveal melanoma and myeloid leukemias. Two loss of function mutations commonly seen in the HEAT repeat domains of cancer patients: K335N and P369E. These mutations can be modelled in a yeast system in HSH155 to understand the consequence of loss of splicesomal function. Specifically, we want to know how these splice mutants are implicated in gene expression and intron retention rate and how this may induce a cancerous phenotype. SF3B1 is the most mutated gene in myeloid malignancies and is indicative of better overall survival compared to wildtype counterparts. However, SF3B1 is a poor prognostic indicator in progesterone receptor-negative breast cancer. This comparison highlights the gap in our understanding of SF3B1 mutation.
 
 ## **Division of labor**
 
 Yeast wild-type data will be compared to two different splice mutants, all previously collected in triplicate. Our project aims to uncover specific gene expression profile variants between the control (WT) and splice mutants that can be associated with the diseased phenotypes. In order to accomplish this, our project will be divided into three parts, each associated with one member of our team: 
-
-  1) *Differential gene expression* = person responsible to write the code that will identify the top genes from the RNA-seq data that are differentially expressed between the control and experimental groups. This will allow to correlate different gene expression patterns to observed phenotypes. 
   
-  2) *Quality Control* = person responsible for inspecting the dataset and analyzing the quality control data generated from the RNA-seq experiment. This person will also oversee the the progression of the project with the other team members. 
+  1) *Quality Control* = person responsible for inspecting the dataset and analyzing the quality control data generated from the RNA-seq experiment. This person will also oversee the the progression of the project with the other team members. 
+  
+  2) *Differential gene expression* = person responsible to write the code that will identify the top genes from the RNA-seq data that are differentially expressed between the control and experimental groups. This will allow to correlate different gene expression patterns to observed phenotypes.
 
   3) *Intron retention* = person responsible to identify genes from the RNA-seq data  that show significantly high or low retention rates as a means to correlate intron retention to observed phenotypes. Investigating intron retention is important since splice variants can have different functions leading to distinct phenotypes.  
   
@@ -37,8 +37,12 @@ RNA was extracted from Saccharomyces cerevisiae using the RiboPure RNA purificat
 
 ## **Aims and methodology**
 
-intron retention: using the SpliceR package http://www.bioconductor.org/packages/2.13/bioc/html/spliceR.html 
-IRFinder https://omictools.com/irfinder-tool 
+Questions/Aims:
+
+1) What genes are differentially expressed between the control and experimental groups. Knowing that the human homolog of yeast HSH155, SF3B1, binds DNA repair proteins, we suspect DNA repair coding genes to be effected in the mutant groups. Initially we will convert the RNA-seq data in BAM file format to Fastq files. We will attempt to create matricies using [limma with the voom approach](https://genomebiology.biomedcentral.com/articles/10.1186/gb-2014-15-2-r29) to present the data for analyzing read counts from our RNA-seq data. Next, we will run a differential exon usage analysis using DEXSeq
+
+2) Is there a difference in splicing efficiency between the control and experimental groups. This can be determined by comparing intron retention rates. Previous groups have had success using the [SpliceR package](http://www.bioconductor.org/packages/2.13/bioc/html/spliceR.html) a bioconducter R package that can determine alternative splicing from RNA-seq data. Additionally,
+[IRFinder](https://omictools.com/irfinder-tool) is another option which has been shown to have identify intron retention which [higher accuracy](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-017-1184-4)  than other comparable software tools such as MISO and DEXseq. 
 
 Please let us know if you require anymore information about our proposed project.
 Group members: @Jameswells96, @arunk95, and @lfourn13

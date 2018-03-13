@@ -1,0 +1,40 @@
+---
+title: "Group Project STAT 540"
+author: "Louis-Alexandre Fournier"
+date: "March 12, 2018"
+output: github_document
+---
+
+# STAT 540 Group Project - Splice and Dice
+
+# Loading the Bam files
+
+```{r data}
+
+#loading libraries
+library(Rsamtools)
+library(DESeq)
+library(GenomeInfoDb)
+library(GenomicAlignments)
+
+
+combined_counts <- file.path("/Users/Louis-Alexandre/Desktop/STAT\ 540\ Project\ Sequencing\ Data/RNA\ seq\ round\ 1/2017-01-30_yeast/combined.counts")
+read.table(combined_counts)
+
+dexseq_1 <- file.path("/Users/Louis-Alexandre/Desktop/STAT\ 540\ Project\ Sequencing\ Data/RNA\ seq\ round\ 1/2017-01-30_yeast/combined.dexseq")
+read.table(dexseq_1)
+class(dexseq_1)
+
+combined_sf <- file.path("/Users/Louis-Alexandre/Desktop/STAT\ 540\ Project\ Sequencing\ Data/RNA\ seq\ round\ 1/2017-01-30_yeast/combined.sf")
+read.table(combined_sf)
+
+combined_gene_sf <- file.path("/Users/Louis-Alexandre/Desktop/STAT\ 540\ Project\ Sequencing\ Data/RNA\ seq\ round\ 1/2017-01-30_yeast/combined.gene.sf.tpm")
+read.table(combined_gene_sf)
+
+combined_isoform_sf_tpm <- file.path("/Users/Louis-Alexandre/Desktop/STAT\ 540\ Project\ Sequencing\ Data/RNA\ seq\ round\ 1/2017-01-30_yeast/combined.sf")
+read.table(combined_isoform_sf_tpm)
+
+
+
+```
+

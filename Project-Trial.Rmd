@@ -1,0 +1,76 @@
+---
+title: "Project-Trial"
+author: "Arun Kumar"
+date: "13 March 2018"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+library(Rsamtools)
+library(DESeq)
+library(GenomeInfoDb)
+library(GenomicAlignments)
+library(ggplot2)
+library(tidyverse)
+library(reshape2)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# STAT 540 Group Project - Splice and Dice
+
+# Loading the Bam files
+
+```{r data}
+#loading libraries
+
+combined_gene_sf <- file.path("E:/Projects/Splice and Dice/SF3B1_rna_seq/2017-01-30_yeast/combined.gene.sf.tpm")
+genedata <- read.table(combined_gene_sf)
+genedata %>%
+  head(50)
+```
+ 
+ 
+Let's shift the focus to the expression of Tub1 in all these replicates.
+ 
+```{r tub1}
+colnames(genedata) <- c("Gene_ID", "K335N1", "K335N2", "K335N3", "P369E1", "P369E2", "P369E3", "WT1", "WT2", "WT3")
+genedata = genedata[-1,]
+ ID <- "YML085C"
+ tub1expression <- genedata %>% filter(Gene_ID %in% ID)
+ tub1expression
+ tub1 <- tub1expression %>%
+  as.data.frame() %>% 
+  column_to_rownames("Gene_ID") %>%
+  t() %>% as.data.frame() %>% 
+  rownames_to_column("sample_id") %>% 
+  melt(id = "sample_id") %>% 
+  as_tibble() %>% 
+  dplyr::select(sample_id,
+         gene = variable, 
+         expression = value)
+ tub1
+```
+
+####Hsh155 expression (unchanged):
+
+```{r hsh155}
+ ID2 <- "YMR288W"
+ hsh155expression <- genedata %>% filter(Gene_ID %in% ID2)
+ hsh155expression
+ hsh155 <- tub1expression %>%
+  as.data.frame() %>% 
+  column_to_rownames("Gene_ID") %>%
+  t() %>% as.data.frame() %>% 
+  rownames_to_column("sample_id") %>% 
+  melt(id = "sample_id") %>% 
+  as_tibble() %>% 
+  dplyr::select(sample_id,
+         gene = variable, 
+         expression = value)
+ hsh155
+```
+
+
+ 
+ 

@@ -1,0 +1,193 @@
+---
+title: "Project-Trial"
+author: "Arun Kumar"
+date: "13 March 2018"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+library(Rsamtools)
+library(DESeq)
+library(GenomeInfoDb)
+library(GenomicAlignments)
+library(ggplot2)
+library(tidyverse)
+library(reshape2)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# STAT 540 Group Project - Splice and Dice
+
+# Loading the Bam files
+
+```{r data}
+#loading libraries
+
+combined_gene_sf <- file.path("/Users/Louis-Alexandre/Desktop/STAT\ 540\ Project\ Sequencing\ Data/RNA\ seq\ round\ 1/2017-01-30_yeast/combined.gene.sf.tpm")
+genedata <- read.table(combined_gene_sf)
+genedata %>%
+  as_tibble()
+```
+ 
+ 
+######Let's shift the focus to the expression of intron containing genes (ICG) in all these replicates.
+
+#####ICG1 - Tub1
+
+```{r tub1}
+colnames(genedata) <- c("Gene_ID", "K335N1", "K335N2", "K335N3", "P369E1", "P369E2", "P369E3", "WT1", "WT2", "WT3")
+genedata = genedata[-1,]
+ ID <- "YML085C"
+ tub1expression <- genedata %>% filter(Gene_ID %in% ID)
+ tub1expression
+ tub1 <- tub1expression %>%
+  as.data.frame() %>% 
+  column_to_rownames("Gene_ID") %>%
+  t() %>% as.data.frame() %>% 
+  rownames_to_column("sample_id") %>% 
+  melt(id = "sample_id") %>% 
+  as_tibble() %>% 
+  dplyr::select(sample_id,
+         gene = variable, 
+         expression = value)
+ tub1
+ 
+ggplot(tub1, aes(x=sample_id, y=expression)) + geom_point()
+ 
+```
+
+#####ICG2 - Hsh155 (unchanged):
+
+```{r hsh155}
+ ID2 <- "YMR288W"
+ hsh155expression <- genedata %>% filter(Gene_ID %in% ID2)
+ hsh155expression
+ hsh155 <- hsh155expression %>%
+  as.data.frame() %>% 
+  column_to_rownames("Gene_ID") %>%
+  t() %>% as.data.frame() %>% 
+  rownames_to_column("sample_id") %>% 
+  melt(id = "sample_id") %>% 
+  as_tibble() %>% 
+  dplyr::select(sample_id,
+         gene = variable, 
+         expression = value)
+ hsh155
+ ggplot(hsh155, aes(x=sample_id, y=expression)) + geom_point()
+```
+
+#####ICG3 - Act1
+```{r ACT1}
+
+ ID3 <- "YFL039C"
+ act1expression <- genedata %>% filter(Gene_ID %in% ID3)
+ act1expression
+ act1 <- act1expression %>%
+  as.data.frame() %>% 
+  column_to_rownames("Gene_ID") %>%
+  t() %>% as.data.frame() %>% 
+  rownames_to_column("sample_id") %>% 
+  melt(id = "sample_id") %>% 
+  as_tibble() %>% 
+  dplyr::select(sample_id,
+         gene = variable, 
+         expression = value)
+ act1
+ ggplot(act1, aes(x=sample_id, y=expression)) + geom_point()
+```
+ 
+#####ICG4 - Sus1
+```{r SUS1}
+
+ID4 <- "YBR111W-A"
+ sus1expression <- genedata %>% filter(Gene_ID %in% ID4)
+ sus1expression
+ sus1 <- sus1expression %>%
+  as.data.frame() %>% 
+  column_to_rownames("Gene_ID") %>%
+  t() %>% as.data.frame() %>% 
+  rownames_to_column("sample_id") %>% 
+  melt(id = "sample_id") %>% 
+  as_tibble() %>% 
+  dplyr::select(sample_id,
+         gene = variable, 
+         expression = value)
+ sus1
+ ggplot(sus1, aes(x=sample_id, y=expression)) + geom_point()
+```
+
+###Filtering the intron containing genes
+
+Instead of loading the intron containing genes one by one, I downloaded the Ares database. 
+
+```{r loading introndataset}
+intronlist <- file.path("http://intron.ucsc.edu/yeast4.1/yeastbasic.txt")
+introndata <- read.table(intronlist)
+introndata %>%
+  as_tibble()
+```
+
+Filtering the Ares database with the RNA-seq data, we now have a dataset of only intron containing genes. We can check for intron retention, and expression using differential gene expression analysis on this set rather than the whole genome. 
+
+```{r filterdatatointrons}
+intronrnaseq <- genedata %>%
+  filter(Gene_ID %in% introndata$V2)
+intronrnaseq %>%
+  as_tibble()
+```
+
+###Differential gene expression analysis on ICG's
+
+PS - Do we average out the values from the three replicates, and perform some sort of stat tests? Also, yet to remove genes which have zero expression. 
+
+###Pre-filtering the dataset: 
+
+```{r filtering 1}
+
+#example of a gene that has a "0" expression value across samples
+ ID3 <- "YAL004W"
+ YAL004Wexpression <- genedata %>% filter(Gene_ID %in% ID3)
+ YAL004Wexpression
+ YAL004W <- YAL004Wexpression %>%
+  as.data.frame() %>% 
+  column_to_rownames("Gene_ID") %>%
+  t() %>% as.data.frame() %>% 
+  rownames_to_column("sample_id") %>% 
+  melt(id = "sample_id") %>% 
+  as_tibble() %>% 
+  dplyr::select(sample_id,
+         gene = variable, 
+         expression = value)
+ YAL004W
+
+```
+
+```{r numeric}
+
+#converting the dataframe into numeric matrix
+
+genedata
+matrix_data <- data.matrix(genedata)
+matrix_data # comparing genedata and matrix_data, the "0" have become "1" upon the matrix transformation
+
+#exploring the distribution of the data
+hist(matrix_data)
+hist(log2(matrix_data), col = "gray", main = "matrix_data log transformed - Histogram")
+
+#replacing "1" values for N/A 
+matrix_data[matrix_data == "1"] <- NA 
+head(matrix_data, 50)
+nrow(matrix_data)
+
+#re-exploring the distribution of the data
+hist(log2(matrix_data), col = "gray", main = "matrix_data log transformed - Histogram") #we can see that the NA values do not affect the distribution anymore
+
+# For our expression data are the number of rows without any NA value, the same as total number of rows?  
+dim(matrix_data) == dim(matrix_data[complete.cases(matrix_data),])
+
+#confirming that 0 values have been transformed to NA
+YAL004W
+
+```
+ 

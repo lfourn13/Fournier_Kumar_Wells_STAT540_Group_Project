@@ -126,12 +126,20 @@ g$Gene_ID <- genedata$Gene_ID
 g %>%
   as_tibble()
 
+
 g$K335N <- rowMeans(subset(g, select = c(K335N1,K335N2,K335N3)), na.rm = TRUE)
 g$P369E <- rowMeans(subset(g, select = c(P369E1,P369E2,P369E3)), na.rm = TRUE)
 g$WT <- rowMeans(subset(g, select = c(WT1,WT2,WT3)), na.rm = TRUE)
 meangenedata <- g[-c(2,3,4,5,6,7,8,9,10)]
 meangenedata %>%
   as_tibble()
+
+```
+
+```{r Lm Fit}
+
+
+
 ```
 
 Repeating the Hsh155 expression pattern and for 3 ICGs:

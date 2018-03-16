@@ -12,7 +12,10 @@ Loading the Bam files
 ``` r
 #loading libraries
 
-combined_gene_sf <- file.path("E:/Projects/Splice and Dice/SF3B1_rna_seq/2017-01-30_yeast/combined.gene.sf.tpm")
+#James
+combined_gene_sf <- file.path("C:/Users/11jpw/Desktop/Files/UBC Masters 2017/2018 Semester 2/STATS540/SF3B1_rna_seq/2017-01-30_yeast/combined.gene.sf.tpm")
+#Arun
+#combined_gene_sf <- file.path("E:/Projects/Splice and Dice/SF3B1_rna_seq/2017-01-30_yeast/combined.gene.sf.tpm")
 genedata <- read.table(combined_gene_sf)
 genedata %>%
   head(50)
@@ -202,3 +205,46 @@ genedata = genedata[-1,]
     ## 7 WT1       YML085C 109.237   
     ## 8 WT2       YML085C 109.326   
     ## 9 WT3       YML085C 112.288
+
+\#\#\#CIN related genes that have human homologs
+
+``` r
+#Reference - http://www.pnas.org/content/113/36/9967#sec-12 (Hieter and Shaw paper on 450 CIN yeast genes)
+ 
+#Topoisomerase
+ID3 <- "YOL006C"
+topoexpression <- genedata %>% filter(Gene_ID %in% ID3)
+topoexpression
+```
+
+    ##   Gene_ID  K335N1  K335N2  K335N3  P369E1 P369E2  P369E3     WT1     WT2
+    ## 1 YOL006C 22.4733 23.2672 24.2692 22.1412 20.374 22.8954 23.1244 23.8796
+    ##       WT3
+    ## 1 25.0241
+
+``` r
+TOP1 <- topoexpression %>%
+  as.data.frame() %>% 
+  column_to_rownames("Gene_ID") %>%
+  t() %>% as.data.frame() %>% 
+  rownames_to_column("sample_id") %>% 
+  melt(id = "sample_id") %>% 
+  as_tibble() %>% 
+  dplyr::select(sample_id,
+         gene = variable, 
+         expression = value)
+TOP1
+```
+
+    ## # A tibble: 9 x 3
+    ##   sample_id gene    expression
+    ##   <chr>     <fct>   <chr>     
+    ## 1 K335N1    YOL006C 22.4733   
+    ## 2 K335N2    YOL006C 23.2672   
+    ## 3 K335N3    YOL006C 24.2692   
+    ## 4 P369E1    YOL006C 22.1412   
+    ## 5 P369E2    YOL006C 20.374    
+    ## 6 P369E3    YOL006C 22.8954   
+    ## 7 WT1       YOL006C 23.1244   
+    ## 8 WT2       YOL006C 23.8796   
+    ## 9 WT3       YOL006C 25.0241

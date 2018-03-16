@@ -24,7 +24,10 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r data}
 #loading libraries
 
-combined_gene_sf <- file.path("E:/Projects/Splice and Dice/SF3B1_rna_seq/2017-01-30_yeast/combined.gene.sf.tpm")
+#James
+combined_gene_sf <- file.path("C:/Users/11jpw/Desktop/Files/UBC Masters 2017/2018 Semester 2/STATS540/SF3B1_rna_seq/2017-01-30_yeast/combined.gene.sf.tpm")
+#Arun
+#combined_gene_sf <- file.path("E:/Projects/Splice and Dice/SF3B1_rna_seq/2017-01-30_yeast/combined.gene.sf.tpm")
 genedata <- read.table(combined_gene_sf)
 genedata %>%
   head(50)
@@ -71,6 +74,27 @@ genedata = genedata[-1,]
  hsh155
 ```
 
-
+ ###CIN related genes that have human homologs 
  
+```{r CIN related}
+#Reference - http://www.pnas.org/content/113/36/9967#sec-12 (Hieter and Shaw paper on 450 CIN yeast genes)
+ 
+#Topoisomerase
+ID3 <- "YOL006C"
+topoexpression <- genedata %>% filter(Gene_ID %in% ID3)
+topoexpression
+TOP1 <- topoexpression %>%
+  as.data.frame() %>% 
+  column_to_rownames("Gene_ID") %>%
+  t() %>% as.data.frame() %>% 
+  rownames_to_column("sample_id") %>% 
+  melt(id = "sample_id") %>% 
+  as_tibble() %>% 
+  dplyr::select(sample_id,
+         gene = variable, 
+         expression = value)
+TOP1
+
+
+```
  

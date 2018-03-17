@@ -1,8 +1,8 @@
 ---
 title: "seminar 9"
-author: "Louis-Alexandre Fournier"
+author: "Arun Kumar"
 date: "March 16, 2018"
-output: html_document
+output: github_document
 ---
 
 
@@ -450,3 +450,20 @@ Fmeasure <- 2 * precision * recall / (precision + recall)
 **Exercise 2**: Use AUC as a criteria to select a model based on the training data! Tip: extract the predicted probabilities from each method and use the roc function in ROCR.   
 
 ```{r deliverable}
+testclassif1 <- classification(X=t(exprs(dat)), y=dat$LnStatus, learningsets= full.learningset, genesel=fullFeatureScores, nbgene = 100, classifier =pknnCMA, k=1)
+
+testclassif5 <- classification(X=t(exprs(dat)), y=dat$LnStatus, learningsets= full.learningset, genesel=fullFeatureScores, nbgene = 100, classifier =pknnCMA, k=5)
+
+testclassif10 <- classification(X=t(exprs(dat)), y=dat$LnStatus, learningsets= full.learningset, genesel=fullFeatureScores, nbgene = 100, classifier =pknnCMA, k=10)
+
+testclassif15 <- classification(X=t(exprs(dat)), y=dat$LnStatus, learningsets= full.learningset, genesel=fullFeatureScores, nbgene = 100, classifier = pknnCMA, k=15)
+
+testclassifLDA <- classification(X=t(exprs(dat)), y=dat$LnStatus, learningsets= full.learningset, genesel=fullFeatureScores, nbgene = 100, classifier = ldaCMA)
+
+testclassifSVM <- classification(X=t(exprs(dat)), y=dat$LnStatus, learningsets= full.learningset, genesel=fullFeatureScores, nbgene = 100, classifier = svmCMA, probability = TRUE)
+
+testclassiflogit <- classification(X=t(exprs(dat)), y=dat$LnStatus, learningsets= full.learningset, genesel=fullFeatureScores, nbgene = 100, classifier = plrCMA)
+
+print(compare(list(testclassif1, testclassif5, testclassif10, testclassif15, testclassiflogit, testclassifSVM ), measure = "auc", plot= TRUE))
+
+```

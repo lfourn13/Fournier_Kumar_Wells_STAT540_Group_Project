@@ -1,0 +1,401 @@
+---
+title: "Homework Assignment"
+author: "James Wells"
+date: "March 1, 2018"
+output: github_document
+---
+
+```{r dependencies, include=FALSE}
+#install.packages("tidyverse", dependencies = TRUE)
+#install.packages("reshape2", dependencies = TRUE)
+#source("https://bioconductor.org/biocLite.R")
+#biocLite("limma")
+
+library(ggplot2)
+library(tidyverse)
+library(data.table)
+library(reshape2)
+library(GEOquery)
+library("car")
+library(dplyr)
+library(pheatmap)
+library(RColorBrewer)
+library(cluster)
+library(pvclust)
+library(xtable)
+library(limma)
+library(lattice)
+library(RCurl)
+library(knitr)
+library(Hmisc)
+
+```
+
+```{r EdgeR, include=FALSE}
+library(edgeR)
+library(Biobase)
+library(gplots)
+```
+
+##Question 1
+```{r Q1.1A, include=FALSE}
+
+#Sample Matrix
+expression_matrix <- readRDS("C:/gse60019_expression_matrix.RDS")
+expression_matrix #tall data
+
+#Sample design
+samples_metadata1 <- readRDS("C:/gse60019_experiment_design.RDS")
+samples_metadata1
+
+
+#Number of genes
+expression_matrix %>% nrow() - 1 # number of genes in the expression matrix (- row for genes)
+```
+
+####There are 14478 genes in the data set
+
+```{r Q1.1B, include=FALSE}
+#Number of samples
+expression_matrix %>% ncol() - 1 # number of samples in the expression matrix (- column for genes)
+```
+
+####There are 18 samples in the data set
+
+```{r Q1.1C, include=FALSE}
+#Factors
+samples_metadata1 %>% ncol() - 1 # number of factors 
+levels(samples_metadata1$organism_part)
+levels(samples_metadata1$cell_type)
+levels(samples_metadata1$time_point)
+levels(samples_metadata1$batch)
+```
+
+####There are four factors, organism part, cell type, time point and batch and these contain 2, 2, 4, and 3 levels respectively
+
+```{r Q1.2A, include=FALSE}
+
+#Adding numeric values to time_point in the form of a new column - age
+samples_metadata1$age <-
+  recode(samples_metadata1$time_point,
+         "'E16' = 2; 'P0' = 18; 'P4' = 22; 'P7' = 25",
+         as.factor.result = FALSE)
+
+#Find the gene Vegfa and check for interaction
+expressionOfGene <- expression_matrix %>% filter(gene %in% 'Vegfa')
+
+#Convert into a tidy format
+expressionOfGene <- expressionOfGene %>%
+  as.data.frame() %>% 
+  column_to_rownames("gene") %>%
+  t() %>% as.data.frame() %>% 
+  rownames_to_column("sample") %>% 
+  melt(id = "sample") %>% 
+  as_tibble() %>% 
+  select(sample,
+         gene = variable, 
+         expression = value)
+
+#Join to MetaData
+expressionOfGene <- expressionOfGene %>% left_join(samples_metadata1, by = "sample")
+
+#T-test
+linearModel <- (lm(expression ~time_point, expressionOfGene))
+summary(linearModel)
+
+#Display in a scatter plot
+expressionOfGene %>%
+  ggplot(aes(x = age, y = expression, color = cell_type)) +
+  geom_point(size = 3, shape =1) +
+  stat_summary(fun.data=mean_cl_normal) + 
+  geom_smooth(method='lm')
+```
+
+###Interaction
+
+####If there is interaction between cell_type and age for Vegfa, we should see the gene upregulated at one cell type and downregulated in the other. Because the linear regression lines of the two different cell types are not in opposite directions, there most likely is no interaction.
+
+##Question 2
+
+```{r Question 2, include=FALSE}
+meltedExpression_Matrix <- expression_matrix %>% melt(id = "gene")
+head(meltedExpression_Matrix)
+meltedExpMatrix_Original = meltedExpression_Matrix
+meltedExpression_Matrix$value <- meltedExpression_Matrix$value %>% log2() #Log base2 transform the data 
+#meltedExpression_Matrix
+
+meltedExpression_Matrix %>% 
+  ggplot(aes(x = variable, y = value)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+meltedExpression_Matrix %>% 
+  ggplot(aes(x = value, color = variable)) +
+  geom_density() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+####Samples GSM1463880 and GSM1463879 standout from the rest of the samples
+
+
+```{r Q2.2, include=FALSE}
+#Compute pairwise distance
+meta <- data.frame(samples_metadata1)
+
+data_to_plot = data.frame(expression_matrix[,-1])
+
+data_to_plot = log2(data_to_plot) #Log base2 transform the data 
+
+data_to_plot = cor(data_to_plot)
+
+rownames(meta) <- colnames(data_to_plot)
+str(meta)
+
+
+pheatmap(data_to_plot, cluster_rows = TRUE, clustering_method = "ward.D2", 
+    clustering_distance_cols = "euclidean", show_colnames = TRUE, show_rownames = FALSE, 
+    main = "Clustering heatmap", annotation = meta[, c("cell_type", "organism_part", "time_point", "batch")])
+```
+
+###Clustering
+
+####Cell type seems to have the biggest correlation with the clusters formed. This is because the clustering algorithm completely separated samples of different cell types into different clusters where as the other classifications are interspersed among clusters.
+
+####The expression data can be visualized as having 2 main divisions. These gene cluster divisions are split into a section that is hair cell enriched and surrounding cell deficient section and a section that is hair cell deficient, surrounding cell deficient. GSM1463872 has expression values that don't clearly fit in these two sections
+
+##Question 3
+
+```{r PART 3, include=FALSE}
+pcs <- prcomp(data_to_plot, center = TRUE, scale = TRUE)
+plot(pcs)
+str(pcs)
+prinComp <- cbind(samples_metadata1, pcs$rotation)
+str(prinComp)
+plot(prinComp[, c("cell_type", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10")], pch = 19, cex = 0.8)
+
+plot(prinComp[, c("cell_type", "PC1")], pch = 21, cex = 1.5)
+plot(prinComp[, c("cell_type", "PC2")], pch = 21, cex = 1.5)
+
+
+plot(prinComp[, c("PC1", "PC2")], bg = samples_metadata1$cell_type, pch = 21, cex = 1.5)
+legend(list(x = 0.2, y = 0.3), as.character(levels(prinComp$cell_type)), pch = 21, pt.bg = c(1, 
+    2, 3, 4, 5))
+
+pclm1 <- lm(prinComp$PC1 ~ prinComp$cell_type, data = samples_metadata1)
+pclm2 <- lm(prinComp$PC2 ~ prinComp$cell_type, data = samples_metadata1)
+pclm3 <- lm(prinComp$PC3 ~ prinComp$cell_type, data = samples_metadata1)
+pclm4 <- lm(prinComp$PC4 ~ prinComp$cell_type, data = samples_metadata1)
+pclm5 <- lm(prinComp$PC5 ~ prinComp$cell_type, data = samples_metadata1)
+pclm6 <- lm(prinComp$PC6 ~ prinComp$cell_type, data = samples_metadata1)
+pclm7 <- lm(prinComp$PC7 ~ prinComp$cell_type, data = samples_metadata1)
+pclm8 <- lm(prinComp$PC8 ~ prinComp$cell_type, data = samples_metadata1)
+pclm9 <- lm(prinComp$PC9 ~ prinComp$cell_type, data = samples_metadata1)
+pclm10 <- lm(prinComp$PC10 ~ prinComp$cell_type, data = samples_metadata1)
+
+rSquaredList <- c(summary(pclm1)$r.squared, summary(pclm2)$r.squared, summary(pclm3)$r.squared,
+                  summary(pclm4)$r.squared, summary(pclm5)$r.squared, summary(pclm6)$r.squared,
+                  summary(pclm7)$r.squared, summary(pclm8)$r.squared, summary(pclm9)$r.squared,
+                  summary(pclm10)$r.squared)
+barplot(matrix(rSquaredList), legend=T,beside=T,main="R-squared Values (Cell Type")
+
+                  
+
+plot(prinComp[, c("batch", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10")], pch = 19, cex = 0.8)
+
+plot(prinComp[, c("batch", "PC1")], pch = 21, cex = 1.5)
+plot(prinComp[, c("batch", "PC2")], pch = 21, cex = 1.5)
+
+plot(prinComp[, c("PC1", "PC2")], bg = samples_metadata1$batch, pch = 21, cex = 1.5)
+legend(list(x = 0.2, y = 0.3), as.character(levels(prinComp$batch)), pch = 21, pt.bg = c(1, 
+    2, 3, 4, 5))
+
+pclm11 <- lm(prinComp$PC1 ~ prinComp$batch, data = samples_metadata1)
+pclm12 <- lm(prinComp$PC2 ~ prinComp$batch, data = samples_metadata1)
+pclm13 <- lm(prinComp$PC3 ~ prinComp$batch, data = samples_metadata1)
+pclm14 <- lm(prinComp$PC4 ~ prinComp$batch, data = samples_metadata1)
+pclm15 <- lm(prinComp$PC5 ~ prinComp$batch, data = samples_metadata1)
+pclm16 <- lm(prinComp$PC6 ~ prinComp$batch, data = samples_metadata1)
+pclm17 <- lm(prinComp$PC7 ~ prinComp$batch, data = samples_metadata1)
+pclm18 <- lm(prinComp$PC8 ~ prinComp$batch, data = samples_metadata1)
+pclm19 <- lm(prinComp$PC9 ~ prinComp$batch, data = samples_metadata1)
+pclm20 <- lm(prinComp$PC10 ~ prinComp$batch, data = samples_metadata1)
+
+rSquaredListBatch <- c(summary(pclm11)$r.squared, summary(pclm12)$r.squared, summary(pclm13)$r.squared,
+                  summary(pclm14)$r.squared, summary(pclm15)$r.squared, summary(pclm16)$r.squared,
+                  summary(pclm17)$r.squared, summary(pclm18)$r.squared, summary(pclm19)$r.squared, summary(pclm20)$r.squared)
+
+barplot(matrix(rSquaredListBatch), legend=T,beside=T,main="R-squared Values (Batch")
+
+rSquaredListBatch[2] #r Squared value for PC2 and batch
+rSquaredListBatch[1] #r Squared value for PC1 and batch
+
+```
+
+###Batch Effects
+
+####1.3 % of variance is captured by PC2 due to batch effects where as 15.9 % is captured by PC1. 
+
+
+#Part 2
+
+##Question 4: Conducting differential expression analysis
+
+```{r Question 4.1}
+
+
+#Determine what the smallest group size is
+table1 = table(samples_metadata1$organism_part, samples_metadata1$cell_type)
+table1
+#Smallest group size is 4
+mintable = min(table1)
+mintable
+#How many genes in the original matrix?
+dim(expression_matrix)
+#Remove genes that have lower than 1 CPM over 4 different samples
+expressionclean<-expression_matrix[rowSums(expression_matrix > 1) > mintable,]
+#How many genes are in the cleaned matrix?
+dim(expressionclean)
+```
+
+###After filtering there are 12760 genes 
+
+```{r Question 4.2}
+#Make a design matrix 
+design <- model.matrix(~age + cell_type + organism_part + age:cell_type, data = samples_metadata1)
+
+#Expression data for voom
+str(expressionclean)
+logCPM <-expressionclean[,-1]
+str(logCPM)
+
+#Running LmFit
+lmebcpm<-lmFit( logCPM, design=design)
+lmebcpm<-eBayes(lmebcpm)
+plotSA(lmebcpm, main="Default limma")
+
+#Running Voom
+vw<-voom( logCPM, design, plot=T, span=0.5)
+lmvoom<-lmFit( vw, design)
+lmvoom<-eBayes(lmvoom)
+plotSA(lmvoom, main= "voom")
+
+#This is the effect of voom
+plot( sqrt(lmebcpm$sigma), sqrt(lmvoom$sigma), pch=20, ylim=c(0.5,3), xlim=c(0,2), xlab="Regular fit sqrt(sigma)", 
+      ylab="Weighted fit sqrt(sigma)", cex=0.2, main="Effect of voom")
+abline(0,1, lty=3)
+
+#Looking at which genes are them most significant: 
+#Age
+topTable(lmvoom, 10, coef=2, genelist=expressionclean$gene, sort.by = "p")
+#Cell type
+topTable(lmvoom, 10, coef=3, genelist=expressionclean$gene, sort.by = "p")
+#Organism part
+topTable(lmvoom, 10, coef=4, genelist=expressionclean$gene, sort.by = "p")
+#Age-Cell type interaction
+topTable(lmvoom, 10, coef=5, genelist=expressionclean$gene, sort.by = "p")
+```
+
+```{r 4.3}
+#Add numbers to the expression matrix
+expression_matrix_num <- cbind(expressionclean, "observation"=1:nrow(expressionclean)) 
+str(expression_matrix_num)
+#Filter out genes to isolate Eva1a
+expressionOfGene2 <- expression_matrix_num %>% filter(gene %in% 'Eva1a')
+#Find out what number corresponds to Eva1a
+expressionOfGene2$observation #Eva1a is observation #3757
+
+
+lmvoom$coefficients[3757,]
+
+```
+
+####The coefficient for age is -0.058. This means that the effect of age is a weighted prior and is shrunk when applied to the linear model. 
+
+####Therefore the equation would be Y = Age(-0.058) + cell_type(-1.308) + organism_part(0.974) + age:cell_type(0.0285) + 1.923
+
+####Using a linear model we are assuming that the residuals of the fitted model are normally distributed
+
+##Question 5: Evaluating the Results
+
+```{r 5.1}
+expression_significant <- topTable(lmvoom, 2000, coef=3, genelist=expressionclean$gene, adjust.method="fdr", sort.by = "p", p.value = 0.05)
+str(expression_significant)
+average_p = mean(expression_significant[,"adj.P.Val"])
+average_p
+gene_significant = expression_significant %>% nrow()
+gene_significant
+false_discoveries <- average_p * gene_significant
+signif(false_discoveries,1)
+#The number of false discoveries on average out of the significant differentially expressed genes is 1.67 % out of 657 genes. Therefore we would expect 10 false discoveries.
+
+dt = decideTests(lmvoom)
+summary(dt)
+#Cell type seems to be the variable associated with the most differentially expressed genes with 352 increases and 305 decreases (657 total) compared to 586 total for age and 239 total for organism_part. 
+```
+
+###The number of false discoveries on average out of the significant differentially expressed genes is 1.74 % out of 585 genes. Therefore we would expect 10 false discoveries.
+
+###Cell type seems to be the variable associated with the most differentially expressed genes with 352 increases and 305 decreases (657 total) compared to 586 total for age and 239 total for organism_part. 
+
+```{r 5.2}
+top_age = topTable(lmvoom, 50, genelist=expressionclean$gene, coef=2, sort.by = "p")
+top_age
+
+#Voom_Age_Expression = subset(Voom_Age, select=c("AveExpr")
+
+str(expressionclean)
+expression_age_signif <- expressionclean %>% filter(gene %in% top_age$ID)
+expression_age_signif
+expression_age_signif = expression_age_signif[-1]
+
+expression_age_signif = cor(expression_age_signif)
+
+
+#Annotation <- dataframe.(row,names)
+
+pheatmap(expression_age_signif, cluster_cols = F, cluster_rows = F, annotation = meta["time_point"])
+```
+
+```{r 5.3}
+summary(dt)
+
+```
+
+##With the interaction term for age and cell type, we are determing if the age information partially determines the effect of the cell type on expression. Therefore, we will see the expression differences between cell types change over different ages.
+##There are 498 probes that are significant for the interaction between age and cell type
+
+```{r 5.4}
+#Interaction
+gene_interaction_table = topTable(lmvoom, 10, coef=5, genelist = expressionclean$gene, sort.by = "p")
+top3 = gene_interaction_table[1:3,]
+top3
+
+#Function used to melt the expression matrix
+transformGeneExpressionMatrix <- function(expressionMatrix) {
+expressionMatrix = expressionMatrix %>%
+  as.data.frame() %>%
+  column_to_rownames("gene") %>%
+  t() %>% as.data.frame() %>% 
+  rownames_to_column("sample") %>% 
+  melt(id = "sample") %>% 
+  as_tibble() %>% 
+  select(sample,
+         gene = variable, 
+         expression = value) 
+  return(expressionMatrix)
+}
+
+expression_interaction = expressionclean %>%
+  filter(gene %in% top3$ID) %>%
+  transformGeneExpressionMatrix() %>%
+  left_join(samples_metadata1, id = "sample")
+expression_interaction$expression = log2(expression_interaction$expression)
+str(expression_interaction)
+
+expression_interaction %>%
+ggplot(aes(x=age, y =expression, color = cell_type, shape = organism_part)) +
+  geom_point() +
+  geom_jitter()
+```
+
+#The interaction between age and cell_type can be visualized here, as the sensory hair cells have greater expression than surrounding cells at higher rates as age increases. 

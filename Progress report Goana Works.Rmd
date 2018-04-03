@@ -1,0 +1,389 @@
+---
+title: "Project-Trial"
+author: "Arun Kumar"
+date: "13 March 2018"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+library(Rsamtools)
+library(DESeq)
+library(GenomeInfoDb)
+library(GenomicAlignments)
+library(ggplot2)
+library(tidyverse)
+library(reshape2)
+library(GEOquery)
+library(cluster)
+library(limma)
+library(knitr)
+library(pvclust)
+library(xtable)
+library(RColorBrewer)
+library(plyr)
+library(pheatmap)
+library(Rtsne)
+library(ggdendro)
+library(devtools)
+library(edgeR)
+library(ermineR)
+library(rJava)
+library(knitr)
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# STAT 540 Group Project - Splice and Dice
+
+# Loading the Bam files
+
+```{r data}
+#loading libraries
+
+#James
+combined_gene_sf <- file.path("C:/Users/11jpw/Desktop/Files/UBC Masters 2017/2018 Semester 2/STATS540/SF3B1_rna_seq/2017-01-30_yeast/combined.gene.sf.tpm")
+#Arun
+#combined_gene_sf <- file.path("E:/Projects/Splice and Dice/SF3B1_rna_seq/2017-01-30_yeast/combined.gene.sf.tpm")
+genedata <- read.table(combined_gene_sf)
+genedata %>%
+  as_tibble()
+
+genematrix = as.matrix(genedata)
+dim(genematrix)
+genematrixclean<-genematrix[rowSums(genematrix >= 1) > 3,]
+dim(genematrixclean)
+max_num=max(genematrixclean[-1,-1])
+max_num
+head(genematrixclean)
+
+genematrixclean = data.frame(genematrixclean)
+genematrixclean
+
+
+```
+ 
+First, to confirm that the two mutations did not affect the expression of Hsh155, we do a quick check on the database before averaging the triplicates. We will repeat this process later.
+
+#####Hsh155 expression:
+
+```{r hsh155}
+colnames(genedata) <- c("Gene_ID", "K335N1", "K335N2", "K335N3", "P369E1", "P369E2", "P369E3", "WT1", "WT2", "WT3")
+genedata = genedata[-1,]
+
+ I <- "YMR288W"
+ hsh155expression <- genedata %>% filter(Gene_ID %in% I)
+ hsh155expression
+ hsh155expression$Gene_ID <- "Hsh155"
+ hsh155 <- hsh155expression %>%
+  as.data.frame() %>% 
+  column_to_rownames("Gene_ID") %>%
+  t() %>% as.data.frame() %>% 
+  rownames_to_column("sample_id") %>% 
+  melt(id = "sample_id") %>% 
+  as_tibble() %>% 
+  dplyr::select(sample_id,
+         gene = variable, 
+         expression = value)
+ hsh155
+ 
+ ggplot(hsh155, aes(x=sample_id, y=expression)) + geom_point(aes(color=sample_id)) + theme(axis.text.x = element_text(angle=90, hjust=1))
+ 
+```
+
+
+######Let's shift the focus to the expression of intron containing genes (ICG) in all these replicates.
+
+```{r tub1}
+
+ ID <- c("YML085C","YFL039C","YBR111W-A")
+ ICGexpression <- genedata %>% filter(Gene_ID %in% ID)
+ ICGexpression
+ ICGexpression$Gene_ID <- c("Tub1", "Act1", "Sus1")
+ ICG <- ICGexpression %>%
+  as.data.frame() %>% 
+  column_to_rownames("Gene_ID") %>%
+  t() %>% as.data.frame() %>% 
+  rownames_to_column("sample_id") %>% 
+  melt(id = "sample_id") %>% 
+  as_tibble() %>% 
+  dplyr::select(sample_id,
+         gene = variable, 
+         expression = value)
+ ICG
+ 
+ ggplot(ICG, aes(x=sample_id, y=expression))+geom_point(aes(color=sample_id)) + theme(axis.text.x = element_text(angle=90, hjust=1)) + facet_wrap(~gene)
+ 
+```
+
+###Filtering the intron containing genes
+
+Instead of loading the intron containing genes one by one, I downloaded the Ares database. 
+
+```{r loading introndataset}
+intronlist <- file.path("http://intron.ucsc.edu/yeast4.1/yeastbasic.txt")
+introndata <- read.table(intronlist)
+introndata %>%
+  as_tibble()
+```
+
+Filtering the Ares database with the RNA-seq data, we now have a dataset of only intron containing genes. We can check for intron retention, and expression using differential gene expression analysis on this set rather than the whole genome. 
+
+```{r filterdatatointrons}
+intronrnaseq <- genedata %>%
+  filter(Gene_ID %in% introndata$V2)
+intronrnaseq %>%
+  as_tibble()
+```
+
+###Differential gene expression analysis on ICG's
+
+```{r averagingthedata}
+g <- genedata
+g <- mutate_all(g, function(x) as.numeric((as.character(x))))
+g$Gene_ID <- genedata$Gene_ID
+g %>%
+  as_tibble()
+
+
+g$K335N <- rowMeans(subset(g, select = c(K335N1,K335N2,K335N3)), na.rm = TRUE)
+g$P369E <- rowMeans(subset(g, select = c(P369E1,P369E2,P369E3)), na.rm = TRUE)
+g$WT <- rowMeans(subset(g, select = c(WT1,WT2,WT3)), na.rm = TRUE)
+meangenedata <- g[-c(2,3,4,5,6,7,8,9,10)]
+meangenedata %>%
+  as_tibble()
+
+```
+
+```{r lmfit_on_data}
+#Reordering the data
+head(genematrixclean)
+genematrixclean_ordered <- genematrixclean[,c(1, 8,9,10,2,3,4,5,6,7)]
+head(genematrixclean_ordered)
+
+
+#Note - change clean to genematrixclean_ordered
+clean <- genematrixclean
+clean <- mutate_all(clean, function(x) as.numeric((as.character(x))))
+clean$Gene_ID <- genematrixclean_ordered$Gene_ID
+clean %>%
+  as_tibble() 
+
+metadata = data.frame(dataClass = c(rep("group1",3), rep("group2",3), rep("group3", 3)))
+mm = model.matrix(~dataClass,metadata)
+mm
+
+#vw <- voom( clean[-1,-1], mm, plot=T)
+logCPM <- cpm(clean[-1,-1], log=TRUE,prior.count=3)
+fit_clean <- lmFit(logCPM, mm)
+fit_clean <- eBayes(fit_clean, trend=TRUE)
+plotSA(fit_clean, main="Limma Trend")
+
+#Effect of Limma Trend
+plot( sqrt(fit_clean$sigma), sqrt(eBayes(fit_clean, trend=FALSE)$sigma), pch=20, ylim=c(0.5,3), xlim=c(0,2), xlab="Regular fit sqrt(sigma)", 
+      ylab="Weighted fit sqrt(sigma)", cex=0.2, main="Effect of Limma Trend")
+abline(0,1, lty=3)
+
+
+
+expression_coeff_2 <- topTable(fit_clean, 1000, coef=2, genelist = genematrixclean$V1, adjust.method="fdr", sort.by = "p", p.value = 0.05)
+expression_coeff_3 <- topTable(fit_clean, 1000, coef=3, genelist = genematrixclean$V1, adjust.method="fdr", sort.by = "p", p.value = 0.05)
+
+#Change column name to Gene_ID
+colnames(expression_coeff_2)[1] <- "Gene_ID"
+colnames(expression_coeff_3)[1] <- "Gene_ID"
+expression_coeff_2
+expression_coeff_3
+
+expression_coeff_2 %>%
+  ggplot(aes(x=Gene_ID, y =P.Value)) +
+  geom_point()
+
+expression_coeff_3 %>%
+  ggplot(aes(x=Gene_ID, y =P.Value)) +
+  geom_point()
+
+#Check HSH155
+#Add numbers to the expression matrix
+genematrixclean_num <- cbind(genematrixclean_ordered, "observation"=1:nrow(genematrixclean_ordered)) 
+str(genematrixclean_num)
+#Filter out genes to isolate HSH155
+genematrixclean_HSH155 <- genematrixclean_num %>% filter(V1 %in% I)
+#Find out what number corresponds to HSH155
+genematrixclean_HSH155$observation #HSH155 is observation 4846
+#Looking at the coefficients of the linear model for HSH155
+fit_clean[4847,]
+
+
+```
+
+
+```{r stats}
+fit_g <- lmFit(meangenedata[,-1], design=c(1,1,1))
+fit_g <- eBayes(fit_g)
+plotSA(fit_g, main="Default limma")
+topTable(fit_g, 1, 7000, adjust.method="fdr", sort.by = "p", p.value = 0.05)
+
+vw<-voom( meangenedata[,-1], plot=T, span=0.5)
+lmvoom<-lmFit(vw)
+lmvoom<-eBayes(lmvoom)
+plotSA(lmvoom, main= "voom")
+
+
+plot( sqrt(fit_g$sigma), sqrt(lmvoom$sigma), pch=20, ylim=c(0.5,3), xlim=c(0,2), xlab="Regular fit sqrt(sigma)", 
+      ylab="Weighted fit sqrt(sigma)", cex=0.2, main="Effect of voom")
+abline(0,1, lty=3)
+
+signif(topTable(lmvoom, 1, 7000, adjust.method="fdr", sort.by = "p", p.value = 0.05) ,3)
+
+g_num <- cbind(meangenedata, "observation"=1:nrow(meangenedata)) 
+g_num
+
+#Check most significant observation
+g_voom <- g_num %>% filter(observation %in% 934)
+g_voom
+
+```
+
+
+Repeating the Hsh155 expression pattern and for 3 ICGs:
+```{r hsh155mean}
+ I1 <- "YMR288W"
+ hsh155expressionmean <- meangenedata %>% filter(Gene_ID %in% I1)
+ hsh155expressionmean
+ hsh155expressionmean$Gene_ID <- "Hsh155"
+ hsh155mean <- hsh155expressionmean %>%
+  as.data.frame() %>% 
+  column_to_rownames("Gene_ID") %>%
+  t() %>% as.data.frame() %>% 
+  rownames_to_column("sample_id") %>% 
+  melt(id = "sample_id") %>% 
+  as_tibble() %>% 
+  dplyr::select(sample_id,
+         gene = variable, 
+         expression = value)
+ hsh155mean
+ 
+ ggplot(hsh155mean, aes(x=sample_id, y=expression)) + geom_point(aes(color=sample_id)) + theme(axis.text.x = element_text(angle=90, hjust=1)) 
+```
+
+```{r plottingmeangenedata}
+
+intronrnaseqmean <- meangenedata %>%
+  filter(Gene_ID %in% introndata$V2)
+intronrnaseqmean %>%
+  as_tibble()
+```
+
+```{r repeatingexpressioncheckwithmean}
+IDD <- c("YML085C","YFL039C","YBR111W-A")
+ ICGexpressionmean <- intronrnaseqmean %>% filter(Gene_ID %in% IDD)
+ ICGexpressionmean
+ ICGexpressionmean$Gene_ID <- c("Tub1", "Act1", "Sus1")
+ ICGmean <- ICGexpressionmean %>%
+  as.data.frame() %>% 
+  column_to_rownames("Gene_ID") %>%
+  t() %>% as.data.frame() %>% 
+  rownames_to_column("sample_id") %>% 
+  melt(id = "sample_id") %>% 
+  as_tibble() %>% 
+  dplyr::select(sample_id,
+         gene = variable, 
+         expression = value)
+ ICGmean
+ 
+ ggplot(ICGmean, aes(x=sample_id, y=expression)) + geom_point(aes(color=sample_id)) + theme(axis.text.x = element_text(angle=90, hjust=1)) + facet_wrap(~gene)
+ 
+```
+
+
+
+```{r meltIRM}
+meltintron <- melt(intronrnaseqmean, id="Gene_ID")
+meltintron %>%
+  as_tibble()
+
+ggplot(meltintron, aes(x=Gene_ID, y=value, color = variable)) + geom_point() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+```{r loggedplotmeltintron}
+logmeltintron <- meltintron
+logmeltintron$value <- log(meltintron$value,2)
+ggplot(logmeltintron, aes(x=Gene_ID, y=value, color = variable)) + geom_point()
+```
+
+```{r Goana}
+#Goana does not accept yeast names. Therefore, merge a list containing the yeast names and human names based on the yeast identifiers https://yeastmine.yeastgenome.org. Once merged, do goana analysis based on human gene identifiers.
+homologlist <- read.table(file = "https://raw.githubusercontent.com/STAT540-UBC/Repo_team_Splice_and_Dice/master/Data/YeastHumanHomologsWithYeastIdentifiers.tsv?token=AMwAPnrPZQg5Ecb9NMG4cQ8hGjF35dl-ks5aySiQwA%3D%3D", sep = '\t', header = TRUE)
+#Join to MetaData
+colnames(homologlist)[5] <- "Gene_ID"
+homologlist <- homologlist %>% left_join(meangenedata, by = "Gene_ID")
+#Look at K335N mutant samples compared to control
+homologlist <- homologlist %>% left_join(expression_coeff_2, by = "Gene_ID")
+#Remove NA values
+homologlist[rowSums(is.na(homologlist)) == 0,]
+#Change name of human genes
+colnames(homologlist)[3] <- "Human_Gene_ID"
+homologlist <- homologlist[!duplicated(homologlist$Human_Gene_ID), ]
+homologlist
+```
+
+```{r goanarun}
+
+if (!file.exists("GO.xml")) { goToday("GO.xml") }
+
+ermineInputGeneScores <- homologlist %>% 
+  mutate(absolute_pvalue = abs(logFC)) %>% 
+  select(Human_Gene_ID, absolute_pvalue) %>% 
+  na.omit() %>% 
+  as.data.frame() %>% 
+  arrange(desc(absolute_pvalue))
+
+ermineInputGeneScores
+typeof(ermineInputGeneScores)
+
+
+ermineInputGeneScores
+
+typeof(ermineInputGeneScores)
+
+ermineInputGeneScores <- ermineInputGeneScores %>%
+  column_to_rownames("Human_Gene_ID")
+
+head(ermineInputGeneScores) # print the first few rows
+
+enrichmentResult <- precRecall(scores = ermineInputGeneScores, 
+                               scoreColumn = 1, # column 1 is the scores 
+                               bigIsBetter = TRUE, # larger logFC should be ranked higher
+                               annotation = "Generic_human", # ask ermineJ to use the Generic_human annotation file (will automatically download)
+                               aspects = "B", # look at only biological processes 
+                               iterations = 10000, # 10K sampling iterations so that results are stable
+                               geneSetDescription = "GO.xml") # use the GO XML file in current directory
+
+enrichmentResult$results %>% arrange(MFPvalue)
+
+enrichmentResult$results %>% 
+  ggplot(aes(x = -log10(Pval), y = -log10(MFPvalue))) +
+  geom_point(alpha = 0.2)
+
+enrichmentResult$results %>% 
+  select(Name, Pval, MFPvalue) %>% 
+  mutate(neg_log_pvalue = -log10(Pval),
+         neg_log_mfpvalue = -log10(MFPvalue)) %>% 
+  mutate(log_pvalue_change = neg_log_mfpvalue - neg_log_pvalue) %>% 
+  arrange(desc(abs(log_pvalue_change))) %>% 
+  head(10) %>% 
+  kable()
+```
+
+```{r Lookatsignifgenes}
+#Table of the top differentially expressed genes that have a human homolog
+sig_list_P369E <- c("YBR114W", "YLR301W", "YBR264C", "YBR138C", "YBL113C")
+sig_gene_P369E <- homologlist %>% filter(Gene_ID %in% sig_list_P369E)
+sig_gene_P369E
+
+sig_list_K335N <- c("YLR301W", "YDR069C", "YHL048C-A", "YBR295W", "YJR025C")
+sig_list_K335N <- homologlist %>% filter(Gene_ID %in% sig_list_K335N)
+sig_list_K335N
+```
+

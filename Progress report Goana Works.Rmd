@@ -366,7 +366,7 @@ enrichmentResult$results %>%
   ggplot(aes(x = -log10(Pval), y = -log10(MFPvalue))) +
   geom_point(alpha = 0.2)
 
-enrichmentResult$results %>% 
+goanalist <- enrichmentResult$results %>% 
   select(Name, Pval, MFPvalue) %>% 
   mutate(neg_log_pvalue = -log10(Pval),
          neg_log_mfpvalue = -log10(MFPvalue)) %>% 
@@ -374,6 +374,7 @@ enrichmentResult$results %>%
   arrange(desc(abs(log_pvalue_change))) %>% 
   head(10) %>% 
   kable()
+goanalist
 ```
 
 ```{r Lookatsignifgenes}
